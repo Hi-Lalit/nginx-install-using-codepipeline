@@ -1,14 +1,23 @@
 version: 0.2
 
+env:
+  variables:
+    AWS_ACCOUNT_ID: "719674478171"
+    AWS_DEFAULT_REGION: "us-east-1"
+
 phases:
-  install:
+  pre_build:
     commands:
-      - echo Installing Docker
-      - apt-get update
-      - apt-get install -y docker.io
+      - echo Logging in to Amazon ECR...
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
 
   build:
     commands:
-      - echo Running Docker nginx container
-      - docker run -d -p 8080:80 --name nginx-container nginx:latest      
-      - docker ps
+      - echo Pull nginx image
+      - docker pull nginx:latest
+      - docker tag nginx:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/devops/nginx:latest
+
+  post_build:
+    commands:
+      - echo Pushing image to ECR
+      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/devops/nginx:latest
