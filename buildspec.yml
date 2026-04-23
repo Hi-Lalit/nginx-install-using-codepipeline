@@ -7,8 +7,13 @@ phases:
       - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 719674478171.dkr.ecr.us-east-1.amazonaws.com
   build:
     commands:
+      - echo "Pulling nginx..."
       - docker pull nginx:latest
+      - echo "Tagging..."
       - docker tag nginx:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/devops/nginx:latest
   post_build:
     commands:
+      - echo "Checking local images before push..."
+      - docker images
+      - echo "Pushing to ECR..."
       - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/devops/nginx:latest
