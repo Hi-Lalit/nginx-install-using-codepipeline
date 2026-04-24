@@ -3,17 +3,30 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - echo "Testing with hard-coded values..."    
+      - echo "Logging in to Amazon ECR..."
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      # Define the full repository URI to keep the build section clean
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/devops/nginx
+  
   build:
     commands:
-      - echo "Pulling nginx..."
-      - docker pull nginx:latest
-      - echo "Tagging..."
-      - docker tag nginx:latest $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/devops/nginx:latest
+      - echo "Build started on `date`"
+      - echo "Building the Docker image..."
+      # Use the directory 'webapp-nginx' as the build context
+      - docker build -t $REPOSITORY_URI:latest ./webapp-nginx
+      # Tagging with a specific commit hash is a DevOps best practice for rollbacks
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
+
   post_build:
     commands:
-      - echo "Checking local images before push..."
-      - docker images
-      - echo "Pushing to ECR..."
-      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/devops/nginx:latest
+      - echo "Build completed on `date`"
+      - echo "Pushing the Docker images to ECR..."
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION
+      - echo "Writing image definitions file for ECS/Deployment..."
+      # If you are using ECS, this helps automate the deployment phase
+      - printf '[{"name":"webapp-nginx","imageUri":"%s"}]' $REPOSITORY_URI:$CODEBUILD_RESOLVED_SOURCE_VERSION > imagedefinitions.json
+
+artifacts:
+  files:
+    - imagedefinitions.json
